@@ -6,44 +6,53 @@ import uploadFile from "../utils/cloudinary.js";
 
 const register = asyncHandler(async (req, res) => {
   const { fullName, email, password } = req.body;
+
+  // ✅ Corrected field validation
   if (
-    [fullName, email, password].some((field) => {
-      field.trim() === "" || field === undefined || field === null;
-    })
+    [fullName, email, password].some((field) => !field || field.trim() === "")
   ) {
     throw new ApiError("All fields are required", 400);
   }
-  const user = User.findOne({ email });
-  if (user) {
+
+  // ✅ Check if user already exists
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
     throw new ApiError("User already exists", 400);
   }
-  const avtarLocalPath = req.file?.profileImage[0].path;
-  if (!avtarLocalPath) {
+
+  // ✅ Correct file access (assuming multer with upload.fields)
+  const avatarLocalPath = req.files?.profileImage?.[0]?.path;
+  if (!avatarLocalPath) {
     throw new ApiError("Profile image is required", 400);
   }
 
-  const avtar = await uploadFile(avtarLocalPath);
-  if (!avtar) {
+  // ✅ Upload image
+  const avatar = await uploadFile(avatarLocalPath);
+  if (!avatar) {
     throw new ApiError("Failed to upload image", 500);
   }
+
+  // ✅ Create user
   const newUser = await User.create({
     fullName,
     email,
     password,
-    profileImage: avtar.url,
+    profileImage: avatar.url,
   });
 
-  const cretedUser = User.findById(newUser._id).select(
+  // ✅ Await findById
+  const createdUser = await User.findById(newUser._id).select(
     "-password -refreshToken"
   );
 
-  if (!cretedUser) {
+  if (!createdUser) {
     throw new ApiError("Failed to create user", 500);
   }
 
+  // ✅ Return success response
   return res.status(201).json(
     new ApiResponse("User created successfully", 201, {
-      user: cretedUser,
+      user: createdUser,
     })
   );
 });
